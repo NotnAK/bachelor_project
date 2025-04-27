@@ -1,22 +1,15 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import GalleryPage from "./pages/GalleryPage";
-import PaintingDetailPage from "./pages/PaintingDetailPage";
+// src/index.js
+import React from 'react';
+import ReactDOM from 'react-dom';
+import { BrowserRouter } from 'react-router-dom';
+import App from './App';
+import './index.css';
 
-function App() {
-  return (
+ReactDOM.render(
+  <React.StrictMode>
     <BrowserRouter>
-      <Routes>
-        {/* Главная страница (список картин) */}
-        <Route path="/" element={<GalleryPage />} />
-
-        {/* Детальная страница для картины */}
-        <Route path="/painting/:id" element={<PaintingDetailPage />} />
-      </Routes>
+      <App />
     </BrowserRouter>
-  );
-}
-
-const root = ReactDOM.createRoot(document.getElementById("root"));
-root.render(<App />);
+  </React.StrictMode>,
+  document.getElementById('root')
+);

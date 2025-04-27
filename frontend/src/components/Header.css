@@ -1,0 +1,19 @@
+/* убрали 100vw-хак, сделали простую растяжку через w-100 в разметке */
+.header-fullwidth {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* подчеркивание занимает место всегда, но по-умолчанию невидимо */
+.nav-link {
+  position: relative;
+  padding-bottom: 0.25rem;
+  text-decoration: underline transparent;
+  transition: text-decoration-color .2s;
+  margin-left: 1rem;
+  color: rgba(255,255,255,0.8);
+}
+
+/* на активном — просто меняем цвет линии */
+.nav-link.active {
+  text-decoration-color: #fff;
+}

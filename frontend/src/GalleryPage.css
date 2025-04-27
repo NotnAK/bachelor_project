@@ -1,0 +1,27 @@
+/* src/GalleryPage.css */
+.navbar-brand, .nav-link {
+  font-weight: bold;
+}
+.nav-link {
+  color: rgba(255,255,255,0.8);
+  margin-left: 1rem;
+}
+.nav-link.active {
+  color: #fff;
+  text-decoration: underline;
+}
+.img-preview {
+  object-fit: contain;
+  height: 200px;
+  background: #f8f9fa;
+  transition: transform 0.3s ease;
+}
+.img-preview:hover {
+  transform: scale(1.05);
+}
+/* новый класс для preview в Detail */
+.img-detail-preview {
+  max-width: 100%;
+  max-height: 400px;
+  object-fit: contain;
+}
