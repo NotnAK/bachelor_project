@@ -20,6 +20,7 @@ urlpatterns = [
     path("search_similar_clip/", search_similar_paintings_clip, name="search_similar_clip"),
     path("search_similar_paintings_clip_vqa/", search_similar_paintings_clip_vqa, name="search_similar_paintings_clip_vqa"),
     path("search_similar_paintings_clip_1024/", search_similar_paintings_clip_1024, name="search_similar_paintings_clip_1024"),
+
 ]
 
 if settings.DEBUG:

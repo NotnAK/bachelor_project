@@ -133,7 +133,19 @@ function GalleryPage() {
           </select>
         </div>
       </div>
-
+      {/* Пагинация */}
+      <div className="d-flex justify-content-between align-items-center mt-3 mb-3">
+        <div>
+          <button className="btn btn-outline-primary me-2" onClick={() => handlePageChange(page-1)} disabled={page<=1}>Prev</button>
+          <button className="btn btn-outline-primary"          onClick={() => handlePageChange(page+1)} disabled={page>=totalPages}>Next</button>
+        </div>
+        <div>
+          <span className="me-2">Page {page} of {totalPages}</span>
+          <select className="form-select d-inline-block" style={{width:'auto'}} value={pageSize} onChange={handlePageSizeChange}>
+            {[5,8,10,20,50,100].map(n=><option key={n} value={n}>{n}</option>)}
+          </select>
+        </div>
+      </div>
       {/* Loader */}
       {loading && (
         <div className="text-center my-5">
@@ -163,7 +175,12 @@ function GalleryPage() {
               </div>
             ))}
           </div>
-
+          {/* Если не загрузка и картин нет */}
+          {!loading && paintings.length === 0 && (
+            <div className="text-center py-5">
+              <h5>No paintings found</h5>
+            </div>
+          )}
           {/* Пагинация */}
           <div className="d-flex justify-content-between align-items-center mt-3">
             <div>

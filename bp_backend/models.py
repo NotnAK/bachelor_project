@@ -18,7 +18,7 @@ class Painting(models.Model):
     filename = models.CharField(max_length=255)
     artist = models.ForeignKey(Artist, on_delete=models.SET_NULL, blank=True, null=True)
     genre = models.CharField(max_length=100, blank=True, null=True)
-    description = models.TextField(blank=True, null=True)
+    name = models.TextField(blank=True, null=True)
     phash = models.CharField(max_length=64, blank=True, null=True)
     width = models.IntegerField(blank=True, null=True)
     height = models.IntegerField(blank=True, null=True)
@@ -26,7 +26,8 @@ class Painting(models.Model):
     subset = models.CharField(max_length=50, blank=True, null=True)
     year = models.IntegerField(blank=True, null=True)  # Новое поле с годом написания
     # Новое поле: вектор эмбеддингов (768 - пример, зависит от модели Florence)
-    embedding = VectorField(dimensions=512, blank=True, null=True)
+    embedding = VectorField(dimensions=768, blank=True, null=True)
     detailed_caption = models.TextField(blank=True, null=True)  # новое поле для Florence‑2 сгенерированного описания
+    caption_embedding = VectorField(dimensions=768, blank=True, null=True)  # НОВОЕ поле
     def __str__(self):
         return self.filename

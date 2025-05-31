@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from bp_backend.models import Painting, Artist
 import ast
+import sys
 
 import numpy as np
 from rest_framework.decorators import api_view
@@ -14,11 +15,74 @@ from bp_backend.models import Painting
 
 from PIL import Image
 import os
-# Импортируем функцию для загрузки модели
-from inference import get_model
+import numpy as np
+from PIL import Image
+import ml_collections
+import sentencepiece
+import functools
+import jax
+import kagglehub
+from django.conf import settings
+from math import ceil
+from django.db.models import Q
 
-# Загружаем модель один раз (глобально)
-model = get_model("test_paintings/12", api_key="tapBxwMwkvdW9Of35nNz")
+import ast
+import logging
+
+import logging
+
+logger = logging.getLogger(__name__)
+import os
+os.environ["KAGGLE_USERNAME"] = "antonkolotusha"
+os.environ["KAGGLE_KEY"] = "63cbef5f1f726ac7d1d2c1af0992604c"
+# Добавляем репозиторий big_vision в путь поиска модулей
+sys.path.append("/home/xkolotusha_122311/bp_backend/big_vision_repo")
+
+# Paligemma Init
+sys.path.append("big_vision_repo")
+from big_vision.models.proj.paligemma import paligemma
+from big_vision.trainers.proj.paligemma import predict_fns
+
+
+MODEL_PATH = "./paligemma-3b-mix-448.f16.npz"
+TOKENIZER_PATH = "/home/xkolotusha_122311/bp_backend/paligemma_tokenizer.model"
+model_config = ml_collections.FrozenConfigDict({
+    "llm": {"vocab_size": 257_152},
+    "img": {"variant": "So400m/14", "pool_type": "none", "scan": True, "dtype_mm": "float16"}
+})
+model_pg = paligemma.Model(**model_config)
+params_pg = paligemma.load(None, MODEL_PATH, model_config)
+tokenizer_pg = sentencepiece.SentencePieceProcessor(TOKENIZER_PATH)
+decode_fn_pg = predict_fns.get_all(model_pg)['decode']
+decode_pg = functools.partial(decode_fn_pg, devices=jax.devices(), eos_token=tokenizer_pg.eos_id())
+
+def run_example(image_pil, prompt, max_decode_len=128):
+    image = image_pil.resize((448, 448)).convert("RGB")
+    image_arr = np.array(image).astype(np.float32)
+    image_arr = image_arr / 127.5 - 1.0
+    image_arr = np.expand_dims(image_arr, axis=0)
+    tokens_list = tokenizer_pg.encode(prompt, add_bos=True) + [tokenizer_pg.eos_id()]
+    tokens = np.array(tokens_list)[None, :]
+    mask_ar = np.zeros_like(tokens)
+    mask_input = np.ones_like(tokens)
+    batch = {
+        "image": image_arr,
+        "text": tokens,
+        "mask_input": mask_input,
+        "mask_ar": mask_ar,
+        "_mask": np.array([True])
+    }
+    output_tokens = decode_pg({"params": params_pg}, batch=batch, max_decode_len=max_decode_len, sampler="greedy")
+    tokens_out = np.array(output_tokens)[0].tolist()
+    try:
+        eos_index = tokens_out.index(tokenizer_pg.eos_id())
+        tokens_out = tokens_out[:eos_index]
+    except ValueError:
+        pass
+    return tokenizer_pg.decode(tokens_out)
+
+
+
 
 from django.conf import settings
 def parse_genre_field(genre_str):
@@ -130,7 +194,7 @@ def paintings_list(request):
             "id": p.id,
             "filename": p.filename,
             "genre": p.genre,  # Оставим оригинальную строку
-            "description": p.description,
+            "name": p.name,
             "phash": p.phash,
             "width": p.width,
             "height": p.height,
@@ -156,7 +220,7 @@ def painting_detail(request, pk):
         "id": painting.id,
         "filename": painting.filename,
         "genre": painting.genre,
-        "description": painting.description,
+        "name": painting.name,
         "detailed_caption": painting.detailed_caption,  # <-- Добавлено
         "phash": painting.phash,
         "width": painting.width,
@@ -296,47 +360,83 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from bp_backend.models import Painting
-from text_embedding_clip import generate_text_embedding_clip
+from text_embedding_clip_768 import generate_text_embedding_clip
 
 @api_view(["POST"])
 def search_similar_paintings_clip(request):
     """
-    Принимает JSON: {"query": "..."}
-    Генерируем CLIP‑вектор для текста, ищем в БД картины по близости.
-    Возвращает JSON {"results": [...]}.
+    POST /search_similar_paintings_clip/
+    {
+      "query": "...",
+      "caption_weight": 0.3          # вес caption_distance
+    }
     """
-    data = request.data
-    query = data.get("query", "")
+    data           = request.data
+    query          = data.get("query", "").strip()
+    caption_weight = float(data.get("caption_weight", 0.0))  # по умолчанию 0
+
     if not query:
         return Response({"error": "No query provided"}, status=400)
 
-    # Генерируем текстовый эмбеддинг
-    text_emb = generate_text_embedding_clip(query)  # shape=(512,)
+    # 1) CLIP-вектор текста
+    text_emb      = generate_text_embedding_clip(query)  # shape=(512,)
     text_emb_list = text_emb.tolist()
 
-    # В pgvector: ищем 10 ближайших.
-    # (!) Если вектор нормированный, то euclidean distance ~ cosine distance.
-    #    Можно вместо `<->` использовать `<=>` (оператор cosine).
-    #    Но нужно убедиться, что у вас есть оператор <=> в pgvector 0.4+.
-    #    Для простоты будем оставлять <-> (L2 distance).
+    # 2) Топ-K по image_distance
+    K = 50
     with connection.cursor() as cursor:
-        cursor.execute("""
-            SELECT id, filename, embedding <-> %s::vector(512) AS distance
+        cursor.execute(f"""
+            SELECT id, filename, name,
+                   embedding <-> %s::vector(768) AS image_distance
             FROM bp_backend_painting
             WHERE embedding IS NOT NULL
-            ORDER BY embedding <-> %s::vector(512)
-            LIMIT 50;
+            ORDER BY embedding <-> %s::vector(768)
+            LIMIT {K};
         """, [text_emb_list, text_emb_list])
         rows = cursor.fetchall()
 
+    # Словарь id → info
+    initial = {
+        pid: {"filename": fn, "name": nm, "image_distance": img_dist}
+        for pid, fn, nm, img_dist in rows
+    }
+    ids = list(initial.keys())
+
+    # 3) Берём caption_distance для тех же id
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT id,
+                   caption_embedding <-> %s::vector(768) AS caption_distance
+            FROM bp_backend_painting
+            WHERE id = ANY(%s);
+        """, [text_emb_list, ids])
+        cap_rows = cursor.fetchall()
+
+    # Словарь id → caption_distance
+    caption_map = {pid: cap_dist for pid, cap_dist in cap_rows}
+
+    # 4) Считаем combined и сортируем
     results = []
-    for row in rows:
-        painting_id, filename, dist = row
+    for pid, info in initial.items():
+        img_d = info["image_distance"]
+        cap_d = caption_map.get(pid)
+        if cap_d is None:
+            cap_d = img_d  # fallback на image_distance
+
+        combined = (1 - caption_weight) * img_d + caption_weight * cap_d
+
         results.append({
-            "id": painting_id,
-            "filename": filename,
-            "distance": dist,
+            "id": pid,
+            "filename": info["filename"],
+            "name": info["name"],
+            "image_distance": img_d,
+            "caption_distance": cap_d,
+            "distance": combined,
         })
+
+    # сортируем по combined
+    results.sort(key=lambda x: x["distance"])
+
     return Response({"results": results})
 
 
@@ -378,40 +478,45 @@ def search_similar_paintings_clip_1024(request):
 
     return Response({"results": results})
 
-# Импорт модели Paligemma VQA через inference Roboflow
-from inference.models.paligemma.paligemma import PaliGemma
-
-
-
 
 @api_view(["POST"])
 def search_similar_paintings_clip_vqa(request):
-    """
-    1. Генерирует CLIP‑эмбеддинг для запроса.
-    2. Ищет 10 кандидатов в базе по 512-мерному вектору.
-    3. Для каждого кандидата открывает изображение и задаёт вопрос:
-       "Does this image contain {query}?" через вызов модели (model.infer).
-       Если ответ – "yes", картина включается в результат.
-    4. Возвращает JSON с отфильтрованными картинами.
-    """
+    logger.debug("== Начало выполнения search_similar_paintings_clip_vqa ==")
     data = request.data
     query = data.get("query", "").strip()
     if not query:
+        logger.warning("Запрос не содержит параметра 'query'")
         return Response({"error": "No query provided."}, status=400)
+
+    logger.info("Получен текстовый запрос: '%s'", query)
+
     try:
+        logger.debug("Генерация CLIP эмбеддинга...")
+        from text_embedding_clip_768 import generate_text_embedding_clip
         text_emb = generate_text_embedding_clip(query)
+        logger.debug("Эмбеддинг успешно сгенерирован, размерность: %s", text_emb.shape)
     except Exception as e:
+        logger.exception("Ошибка при генерации эмбеддинга: %s", str(e))
         return Response({"error": f"Error generating text embedding: {str(e)}"}, status=500)
+
     text_emb_list = text_emb.tolist()
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            SELECT id, filename, embedding <-> %s::vector(512) AS distance
-            FROM bp_backend_painting
-            WHERE embedding IS NOT NULL
-            ORDER BY embedding <-> %s::vector(512)
-            LIMIT 10;
-        """, [text_emb_list, text_emb_list])
-        rows = cursor.fetchall()
+
+    logger.debug("Выполняется SQL-запрос для поиска кандидатов...")
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT id, filename, embedding <-> %s::vector(768) AS distance
+                FROM bp_backend_painting
+                WHERE embedding IS NOT NULL
+                ORDER BY embedding <-> %s::vector(768)
+                LIMIT 50;
+            """, [text_emb_list, text_emb_list])
+            rows = cursor.fetchall()
+        logger.info("Найдено %d кандидатов", len(rows))
+    except Exception as e:
+        logger.exception("Ошибка при выполнении SQL-запроса: %s", str(e))
+        return Response({"error": f"Database error: {str(e)}"}, status=500)
+
     candidate_results = []
     for r in rows:
         candidate_results.append({
@@ -419,22 +524,38 @@ def search_similar_paintings_clip_vqa(request):
             "filename": r[1],
             "distance": r[2]
         })
+
     final_results = []
     for candidate in candidate_results:
+        painting_id = candidate["id"]
         try:
-            painting = get_object_or_404(Painting, id=candidate["id"])
+            logger.info("Обработка кандидата id=%s, filename=%s", painting_id, candidate["filename"])
+            painting = get_object_or_404(Painting, id=painting_id)
             image_path = os.path.join(settings.MEDIA_ROOT, "extracted_paintings", painting.filename)
+            logger.debug("Путь к изображению: %s", image_path)
             if not os.path.exists(image_path):
+                logger.warning("Файл изображения не найден: %s", image_path)
                 continue
             with Image.open(image_path) as img:
                 img = img.convert("RGB")
-            # Формируем вопрос для VQA
-            vqa_prompt = f"Does this image contain {query}?"
-            # Вызываем inference через загруженную модель
-            result = model.infer(img, prompt=vqa_prompt)
-            answer = str(result[0].response).strip().lower()
+
+            #vqa_prompt = f"does this image contain {query}? Yes or no"
+            vqa_prompt = f"does this image contain {query}"
+            #vqa_prompt = f"Is there {query} on this image? Yes or no"
+            logger.debug("Отправка запроса в Paligemma: '%s'", vqa_prompt)
+            answer = run_example(img, f"answer en {vqa_prompt}").strip().lower()
+            logger.info("Ответ Paligemma: '%s'", answer)
         except Exception as e:
+            logger.exception("Ошибка при обработке кандидата id=%s: %s", painting_id, str(e))
             continue
-        if answer == "yes":
+
+        if answer.startswith("yes"):
+            logger.info("Картина добавлена в результат: id=%s", painting_id)
             final_results.append(candidate)
+        else:
+            logger.info("Картина отклонена моделью (ответ='%s'): id=%s", answer, painting_id)
+
+    logger.debug("== Завершение search_similar_paintings_clip_vqa ==")
     return Response({"results": final_results})
+
+

@@ -54,7 +54,12 @@ export default function SmartSearchPage() {
       setSelArtist(a)
     }
   }, [])
-
+  // При переключении VQA — сбрасываем сортировку по подписи
+  useEffect(() => {
+    if (useVQA) {
+      setSortByCaption(false)
+    }
+  }, [useVQA])
   // сохраняем в sessionStorage при изменении важных состояний
   useEffect(() => {
     sessionStorage.setItem(
@@ -80,6 +85,8 @@ export default function SmartSearchPage() {
     selYear,
     selArtist
   ])
+ const [hasSearched, setHasSearched] = useState(false)
+  const [lastSearchedQuery, setLastSearchedQuery] = useState('')
 
   // --- 1) Smart search + подгрузка деталей ---
   const doSearch = async () => {
@@ -88,6 +95,9 @@ export default function SmartSearchPage() {
       return
     }
     setLoading(true)
+    setHasSearched(true)
+    setLoading(true)
+    setLastSearchedQuery(vectorQuery)
     try {
       const endpoint = useVQA
         ? 'http://147.175.106.196:60000/search_similar_paintings_clip_vqa/'
@@ -110,7 +120,7 @@ export default function SmartSearchPage() {
           const detail = await fetch(
             `http://147.175.106.196:60000/paintings/${item.id}/`
           ).then(r => r.json())
-          const distance = item.caption_distance ?? item.image_distance
+          const distance = item.image_distance
           return { ...detail, distance }
         })
       )
@@ -176,18 +186,21 @@ export default function SmartSearchPage() {
           </label>
         </div>
 
-        <div className="form-check">
-          <input
-            id="sortCaption"
-            type="checkbox"
-            className="form-check-input"
-            checked={sortByCaption}
-            onChange={e => setSortByCaption(e.target.checked)}
-          />
-          <label htmlFor="sortCaption" className="form-check-label">
-            Sort by AI Description
-          </label>
-        </div>
+{/* Показываем только если VQA выключен */}
+        {!useVQA && (
+          <div className="form-check">
+            <input
+              id="sortCaption"
+              type="checkbox"
+              className="form-check-input"
+              checked={sortByCaption}
+              onChange={e => setSortByCaption(e.target.checked)}
+            />
+            <label htmlFor="sortCaption" className="form-check-label">
+              Sort by AI Description
+            </label>
+          </div>
+        )}
 
         {sortByCaption && (
           <div className="d-flex align-items-center gap-2">
@@ -293,9 +306,19 @@ export default function SmartSearchPage() {
           <h5>No results after filtering</h5>
         </div>
       )}
-      {!loading && similarPaintings.length === 0 && (
+      {!loading && similarPaintings.length === 0 && !hasSearched && (
         <div className="text-center py-5">
-          <h5>Nothing searched yet</h5>
+          <h5>Type in the query and click "Search"</h5>
+        </div>
+      )}
+      {!loading && similarPaintings.length > 0 && filteredPaintings.length === 0 && (
+        <div className="text-center py-5">
+          <h5>Nothing found after filtering</h5>
+        </div>
+      )}
+      {!loading && similarPaintings.length === 0 && hasSearched && (
+        <div className="text-center py-5">
+          <h5>Nothing found for the query "{lastSearchedQuery}"</h5>
         </div>
       )}
     </div>
