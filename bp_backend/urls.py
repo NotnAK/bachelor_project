@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import path
 from django.conf import settings
 from django.conf.urls.static import static
-from bp_backend.views import search_similar_paintings
+from bp_backend.views import search_similar_paintings, filter_by_detected_classes
 from bp_backend.views import (
     paintings_list,
     painting_detail,
@@ -20,6 +20,7 @@ urlpatterns = [
     path("search_similar_clip/", search_similar_paintings_clip, name="search_similar_clip"),
     path("search_similar_paintings_clip_vqa/", search_similar_paintings_clip_vqa, name="search_similar_paintings_clip_vqa"),
     path("search_similar_paintings_clip_1024/", search_similar_paintings_clip_1024, name="search_similar_paintings_clip_1024"),
+    path("filter_by_detected_classes/", filter_by_detected_classes, name="filter_by_detected_classes"),
 
 ]
 

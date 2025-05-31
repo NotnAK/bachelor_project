@@ -558,4 +558,94 @@ def search_similar_paintings_clip_vqa(request):
     logger.debug("== Завершение search_similar_paintings_clip_vqa ==")
     return Response({"results": final_results})
 
+@api_view(["POST"])
+def filter_by_detected_classes(request):
+    """
+    Принимает JSON:
+    {
+      "ids": [1, 42, 103, ...],
+      "classes": ["dog", "woman", "child"]  # максимум 4 строки
+    }
+    Возвращает JSON:
+    {
+      "ids": [ <список id картин, в которых ≥75% пользовательских классов найдены> ]
+    }
+    """
+    data = request.data
+    ids = data.get("ids", [])
+    classes = data.get("classes", [])
 
+    if not isinstance(ids, list) or not isinstance(classes, list):
+        logger.warning("Получены неверные данные: ids или classes не список")
+        return Response({"error": "Неверный формат данных"}, status=400)
+
+    # Обрезаем до 4 пользовательских классов, приводим к lowercase
+    user_classes = [c.strip().lower() for c in classes if isinstance(c, str)]
+    user_classes = user_classes[:4]
+
+    logger.info(f"=== Запущен filter_by_detected_classes: ids={ids}, user_classes={user_classes} ===")
+
+    if len(user_classes) == 0:
+        logger.info("Пользователь не задал ни одного класса. Возвращаем пустой список.")
+        return Response({"ids": []})
+
+    passed_ids = []
+
+    for pid in ids:
+        # Берём объект картины и путь к файлу
+        try:
+            painting = get_object_or_404(Painting, id=pid)
+        except Exception as e:
+            logger.warning(f"Painting id={pid} не найден в базе. Пропускаем. Ошибка: {e}")
+            continue
+
+        image_path = os.path.join(settings.MEDIA_ROOT, "extracted_paintings", painting.filename)
+        if not os.path.exists(image_path):
+            logger.warning(f"Файл изображения для painting id={pid} не найден: {image_path}")
+            continue
+
+        logger.info(f"Обрабатываем картину: id={pid}, filename='{painting.filename}'")
+
+        # Формируем prompt
+        prompt = "detect " + "; ".join(user_classes)
+        logger.info(f"Формируем prompt для Paligemma: '{prompt}'")
+
+        # Запускаем Paligemma
+        try:
+            with Image.open(image_path) as img_obj:
+                img = img_obj.convert("RGB")
+                output_str = run_example(img, prompt).strip()
+        except Exception as e:
+            logger.error(f"Ошибка при запуске Paligemma для id={pid}: {e}")
+            continue
+
+        logger.info(f"Paligemma вернул для id={pid}: \"{output_str}\"")
+
+        # Парсим выход Paligemma: split по ";" и берём последние слова как «классы»
+        detected_classes = set()
+        for piece in output_str.split(";"):
+            cls = piece.strip().lower()
+            if not cls:
+                continue
+            parts = cls.split()
+            # берём последний токен (это и будет «класс»)
+            last_word = parts[-1]
+            detected_classes.add(last_word)
+
+        logger.info(f"Найденные уникальные классы в картине id={pid}: {detected_classes}")
+
+        # Считаем пересечение
+        match_count = len(set(user_classes) & detected_classes)
+        logger.info(
+            f"Количество совпадений с user_classes для id={pid}: {match_count} "
+            f"из {len(user_classes)} ({match_count/len(user_classes)*100:.1f}% )"
+        )
+
+        if match_count / len(user_classes) >= 0.75:
+            logger.info(f"--> Картину id={pid} ВКЛЮЧАЕМ в результат (match_count={match_count}).")
+            passed_ids.append(pid)
+        else:
+            logger.info(f"--> Картину id={pid} ОТКЛОНЯЕМ (match_count={match_count}).")
+
+    logger.info(f"=== Результат filter_by_detected_classes: passed_ids={passed_ids} ===")
+    return Response({"ids": passed_ids})
