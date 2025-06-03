@@ -8,15 +8,15 @@ from bp_backend.models import Painting
 from transformers import CLIPTokenizer, CLIPModel
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-CHECKPOINT = "openai/clip-vit-large-patch14"  # Модель получше, 768-дименсиональные эмбеддинги
+CHECKPOINT = "openai/clip-vit-large-patch14"  # Better model, 768-dimensional embeddings
 
 def generate_caption_embeddings():
-    print(f"Загружаем CLIP text модель: {CHECKPOINT}")
+    print(f"Loading CLIP text model: {CHECKPOINT}")
     model = CLIPModel.from_pretrained(CHECKPOINT).to(DEVICE)
     tokenizer = CLIPTokenizer.from_pretrained(CHECKPOINT)
 
     qs = Painting.objects.exclude(detailed_caption__isnull=True).exclude(detailed_caption__exact="")
-    print(f"Найдено {qs.count()} записей с AI-описанием.")
+    print(f"Found {qs.count()} records with AI-generated captions.")
     for painting in qs:
         text = painting.detailed_caption
         inputs = tokenizer(text, return_tensors="pt", padding=True, truncation=True).to(DEVICE)
@@ -26,7 +26,7 @@ def generate_caption_embeddings():
             emb_np = emb.squeeze(0).cpu().numpy()
         painting.caption_embedding = emb_np.astype(np.float32).tolist()
         painting.save(update_fields=["caption_embedding"])
-        print(f"Сохранили эмбеддинг для id={painting.id}")
+        print(f"Saved embedding for id={painting.id}")
 
 if __name__ == "__main__":
     generate_caption_embeddings()

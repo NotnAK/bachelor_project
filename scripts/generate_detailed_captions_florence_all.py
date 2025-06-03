@@ -5,13 +5,13 @@ from PIL import Image
 from transformers import AutoProcessor, AutoModelForCausalLM
 import torch
 
-# Инициализируем Django
+# Initialize Django
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "bp_backend.settings")
 django.setup()
 
 from bp_backend.models import Painting
 
-# Загружаем модель и препроцессор
+# Load model and processor
 model_id = "microsoft/Florence-2-large"
 model = AutoModelForCausalLM.from_pretrained(
     model_id, trust_remote_code=True, torch_dtype='auto'
@@ -20,12 +20,11 @@ processor = AutoProcessor.from_pretrained(
     model_id, trust_remote_code=True
 )
 
-# Промпт для генерации описаний
+# Prompt to generate captions
 task_prompt = "<MORE_DETAILED_CAPTION>"
 
-# Глобальная «переменная окружения» для префикса папки
+# Global “environment variable” for folder prefix
 PREFIX = "Realism/"
-
 
 def run_caption(image: Image.Image, task_prompt: str) -> str:
     inputs = processor(
@@ -57,62 +56,59 @@ def run_caption(image: Image.Image, task_prompt: str) -> str:
         return parsed.get(task_prompt, "")
     return parsed
 
-
 def generate_detailed_captions_for_paintings():
     """
-    Оригинальная функция, НЕ менять по части логики:
-    берёт глобальный PREFIX и фильтрует:
+    Original function – do NOT change logic:
+    uses global PREFIX and filters:
       Painting.objects.filter(filename__startswith=PREFIX)
-    Но теперь выводит порядковый номер и помечает,
-    есть ли уже caption.
+    Now prints index and marks if a caption already exists.
     """
     qs = Painting.objects.filter(filename__startswith=PREFIX)
     total = qs.count()
-    print(f"🔍 Найдено {total} картин (PREFIX={PREFIX}).\n")
+    print(f"🔍 Found {total} paintings (PREFIX={PREFIX}).\n")
 
     updated = 0
     for idx, painting in enumerate(qs, start=1):
-        # Выводим номер и имя
+        # Print index and filename
         print(f"{idx}. {painting.filename} —", end=" ")
 
-        # Если описание уже есть — пропускаем генерацию
+        # If a caption already exists, skip generation
         if painting.detailed_caption:
-            print("пропущено (описание уже есть)")
+            print("skipped (caption already exists)")
             continue
 
-        # Иначе — генерируем
+        # Otherwise – generate
         image_path = os.path.join("media", "extracted_paintings", painting.filename)
         if not os.path.exists(image_path):
-            print(f"❌ файл не найден")
+            print("❌ file not found")
             continue
 
         try:
             with Image.open(image_path) as img:
                 img = img.convert("RGB")
         except Exception as e:
-            print(f"❌ ошибка при открытии: {e}")
+            print(f"❌ error opening: {e}")
             continue
 
         try:
             caption = run_caption(img, task_prompt)
         except Exception as e:
-            print(f"❌ ошибка генерации: {e}")
+            print(f"❌ generation error: {e}")
             continue
 
-        # Сохраняем и отмечаем
+        # Save and mark
         painting.detailed_caption = caption
         painting.save()
         updated += 1
-        print("✅ обновлено")
+        print("✅ updated")
 
-    print(f"\n🎉 Всего обновлено описаний: {updated} из {total}.")
-
+    print(f"\n🎉 Total captions updated: {updated} out of {total}.")
 
 def generate_all_captions():
     """
-    Новая обёртка: пробегает по всем поддиректориям
-    в media/extracted_paintings и для каждой меняет PREFIX,
-    а затем вызывает generate_detailed_captions_for_paintings().
+    New wrapper: iterates through all subdirectories
+    in media/extracted_paintings and for each changes PREFIX,
+    then calls generate_detailed_captions_for_paintings().
     """
     global PREFIX
 
@@ -125,13 +121,12 @@ def generate_all_captions():
     for p in sorted(prefixes):
         PREFIX = f"{p}/"
         print("\n" + "="*80)
-        print(f"🎯 Обрабатываем категорию: {PREFIX}")
+        print(f"🎯 Processing category: {PREFIX}")
         generate_detailed_captions_for_paintings()
 
-
 if __name__ == "__main__":
-    # Для одного каталога:
+    # For a single category:
     # generate_detailed_captions_for_paintings()
 
-    # Для всех сразу:
+    # Or to do all at once:
     generate_all_captions()

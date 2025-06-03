@@ -6,40 +6,39 @@ import torch
 import numpy as np
 from transformers import CLIPProcessor, CLIPModel
 
-# выбираем устройство
+# Choose device
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# более крупная модель CLIP-ViT-L/14
+# Larger CLIP-ViT-L/14 model
 CHECKPOINT = "openai/clip-vit-large-patch14"
 
-# загружаем модель и процессор один раз
+# Load model and processor once
 model = CLIPModel.from_pretrained(CHECKPOINT).to(DEVICE)
 processor = CLIPProcessor.from_pretrained(CHECKPOINT)
 
 def generate_text_embedding_clip(text: str) -> np.ndarray:
     """
-    Генерирует 768-мерный эмбеддинг для входной строки text
-    с помощью CLIP-ViT-L/14.
+    Generates a 768-dimensional embedding for the input text using CLIP-ViT-L/14.
     """
     model.eval()
-    # токенизируем текст
+    # Tokenize text
     inputs = processor(
         text=[text],
         return_tensors="pt",
         padding=True,
         truncation=True
     ).to(DEVICE)
-    # вычисляем эмбеддинг
+    # Compute embedding
     with torch.no_grad():
         text_emb = model.get_text_features(**inputs)
-        # нормируем вектор (опционально)
+        # Normalize the vector (optional)
         text_emb = text_emb / text_emb.norm(p=2, dim=-1, keepdim=True)
         text_emb_np = text_emb.squeeze(0).cpu().numpy()
     return text_emb_np
 
 if __name__ == "__main__":
     while True:
-        query = input("Введите текст для эмбеддинга (exit=выход): ")
+        query = input("Enter text for embedding (exit=quit): ")
         if query.lower() == "exit":
             break
         emb = generate_text_embedding_clip(query)

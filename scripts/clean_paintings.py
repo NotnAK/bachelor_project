@@ -1,28 +1,28 @@
 import os
 import django
 
-# Настроим Django перед импортом моделей
+# Configure Django before importing models
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "bp_backend.settings")
 django.setup()
 
 from bp_backend.models import Painting
 
-# Укажи путь к папке с картинами
-PAINTINGS_FOLDER = r"C:\Users\Антон\Downloads\archive"  # Указываем реальный путь
+# Specify path to the folder with paintings
+PAINTINGS_FOLDER = r"C:\Users\Anton\Downloads\archive"  # Provide the actual path
 
 def clean_paintings(folder):
-    """ Удаляет файлы, которых нет в базе данных """
-    # Получаем список всех файлов в базе
+    """Deletes files that are not present in the database."""
+    # Get a set of all filenames in the database
     existing_files = set(Painting.objects.values_list("filename", flat=True))
 
-    # Проходим по всем файлам в папке и поддиректориях
+    # Walk through all files in the folder and its subdirectories
     for root, _, files in os.walk(folder):
         for file in files:
             file_path = os.path.join(root, file)
 
-            # Если это файл и его нет в базе, удаляем
+            # If this is a file and it’s not in the database, delete it
             if os.path.isfile(file_path) and file not in existing_files:
-                print(f"Удаляю {file_path}")
+                print(f"Deleting {file_path}")
                 os.remove(file_path)
 
 if __name__ == "__main__":

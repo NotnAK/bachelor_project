@@ -3,20 +3,20 @@ import django
 import os
 import re
 
-# Настроим Django перед импортом моделей
+# Configure Django before importing models
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "bp_backend.settings")
 django.setup()
 
-from bp_backend.models import Artist, Painting  # Импортируем модели
+from bp_backend.models import Artist, Painting  # Import models
 
-# Путь к CSV-файлу (замени на свой)
+# Path to the CSV file (replace with your own)
 CSV_FILE = "../classes.csv"
 
 def extract_year(description):
     """
-    Извлекает год из описания картины.
-    Если в описании присутствует строка "not_detected", возвращает None.
-    Иначе ищет все 4-значные числа и возвращает последнее найденное.
+    Extracts a year from the painting description.
+    If the description contains "not_detected", returns None.
+    Otherwise, finds all 4-digit numbers and returns the last one found.
     """
     if "not_detected" in description:
         return None
@@ -30,23 +30,23 @@ def import_paintings(csv_file):
         reader = csv.DictReader(f)
         for row in reader:
             filename = row['filename']
-            artist_name = row['artist'].strip().lower()  # Приводим к нижнему регистру
+            artist_name = row['artist'].strip().lower()  # Convert to lowercase
             genre = row['genre']
             description = row['description']
             width = int(row['width']) if row['width'] else None
             height = int(row['height']) if row['height'] else None
             genre_count = int(row['genre_count']) if row['genre_count'] else None
 
-            # Определяем год написания картины по описанию
+            # Determine painting year from description
             year = extract_year(description)
 
-            # Проверяем, есть ли художник в базе (без учёта регистра)
+            # Check if artist exists in the database (case-insensitive)
             artist = Artist.objects.filter(name__iexact=artist_name).first()
             if artist is None:
                 print(f"Skipping {filename}: artist '{artist_name}' not found.")
-                continue  # Пропускаем эту картину
+                continue  # Skip this painting
 
-            # Если художник найден, создаём или обновляем картину
+            # If artist is found, create or update the painting
             painting, created = Painting.objects.update_or_create(
                 filename=filename,
                 defaults={
@@ -56,7 +56,7 @@ def import_paintings(csv_file):
                     'width': width,
                     'height': height,
                     'genre_count': genre_count,
-                    'year': year  # Сохраняем год написания
+                    'year': year  # Save the painting year
                 }
             )
             if created:
@@ -64,11 +64,11 @@ def import_paintings(csv_file):
             else:
                 print(f"Painting updated: {painting.filename} (Artist ID: {artist.id}, Year: {year})")
 
-    # Обновляем количество картин у каждого художника
+    # Update the number of paintings for each artist
     update_artist_painting_counts()
 
 def update_artist_painting_counts():
-    """ Пересчитывает количество картин у каждого художника """
+    """Recalculates the number of paintings for each artist."""
     for artist in Artist.objects.all():
         count = Painting.objects.filter(artist=artist).count()
         artist.paintings = count

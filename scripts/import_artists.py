@@ -2,13 +2,13 @@ import csv
 import django
 import os
 
-# Настроим Django перед импортом моделей
+# Configure Django before importing models
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "bp_backend.settings")
 django.setup()
 
 from bp_backend.models import Artist
 
-# Путь к CSV-файлу (замени на свой)
+# Path to the CSV file (replace with your own)
 CSV_FILE = "../artists.csv"
 
 def import_artists(csv_file):
@@ -24,7 +24,7 @@ def import_artists(csv_file):
             wikipedia = row['wikipedia']
             paintings = int(row['paintings']) if row['paintings'] else None
 
-            # Сохраняем в базу
+            # Save to database
             artist, created = Artist.objects.update_or_create(
                 artist_id=artist_id,
                 defaults={
@@ -38,9 +38,9 @@ def import_artists(csv_file):
                 }
             )
             if created:
-                print(f"Создан: {artist.name}")
+                print(f"Created: {artist.name}")
             else:
-                print(f"Обновлён: {artist.name}")
+                print(f"Updated: {artist.name}")
 
 if __name__ == "__main__":
     import_artists(CSV_FILE)
