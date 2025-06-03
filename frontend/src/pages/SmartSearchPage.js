@@ -6,8 +6,12 @@ import 'bootstrap/dist/css/bootstrap.min.css'
 import '../GalleryPage.css'
 import { normalizeGenre } from '../utils/normalizeGenre'
 
+// Иконка вопроса (из react-icons)
+import { FaQuestionCircle, FaTimesCircle } from 'react-icons/fa'
+
 export default function SmartSearchPage() {
   const location = useLocation()
+
   // флаг, чтобы не выполнять «лишнюю» фильтрацию при первичной загрузке из sessionStorage
   const [isInitialized, setIsInitialized] = useState(false)
 
@@ -34,17 +38,22 @@ export default function SmartSearchPage() {
   const [loading, setLoading] = useState(false)
 
   // — состояния для фильтрации по классам, детектируемым Paligemma:
+  //    теперь: вводим один класс за раз, нажимаем "Add" → попадает в массив classFilterList
   const [showClassFilter, setShowClassFilter]             = useState(false)
-  const [classFilterInput, setClassFilterInput]           = useState("")   // введённая пользователем строка (например, "dog woman child")
-  const [classFilterList, setClassFilterList]             = useState([])   // разобранный массив уникальных классов (max 4)
+  const [newClassInput, setNewClassInput]                 = useState('')   // ввод одного класса
+  const [classFilterList, setClassFilterList]             = useState([])   // массив добавленных классов (max 4)
   const [isApplyingClassFilter, setIsApplyingClassFilter] = useState(false) // индикатор, что запрос к /filter_by_detected_classes/ выполняется
 
   const [hasSearched, setHasSearched] = useState(false)
   const [lastSearchedQuery, setLastSearchedQuery] = useState('')
 
-  // при маунте: загружаем сохранённое состояние (если нужно)
-   // при маунте: загружаем сохранённое состояние, включая filteredPaintings и class‐filter
-   useEffect(() => {
+  // — состояние для показа/скрытия Help-модального окна
+  const [showHelpModal, setShowHelpModal] = useState(false)
+
+  // ───────────────────────────────────────────────────────────────
+  // 1) при маунте: восстанавливаем state из sessionStorage
+  // ───────────────────────────────────────────────────────────────
+  useEffect(() => {
     const saved = sessionStorage.getItem('smartSearchState')
     if (saved) {
       try {
@@ -59,7 +68,7 @@ export default function SmartSearchPage() {
           selYear: y,
           selArtist: a,
           showClassFilter: scf,
-          classFilterInput: cfi,
+          // вместо classFilterInput и classFilterList старого формата
           classFilterList: cfl
         } = JSON.parse(saved)
 
@@ -76,28 +85,26 @@ export default function SmartSearchPage() {
         setSelArtist(a)
 
         setShowClassFilter(scf ?? false)
-        setClassFilterInput(cfi ?? "")
         setClassFilterList(cfl ?? [])
       } catch (e) {
-        console.warn("Не удалось распарсить smartSearchState из sessionStorage:", e)
+        console.warn('Не удалось распарсить smartSearchState из sessionStorage:', e)
       }
     }
-    // После того, как всё восстановили, отмечаем, что инициализация завершена
     setIsInitialized(true)
   }, [])
 
-
-
-  // При переключении VQA — сбрасываем сортировку по подписи
+  // ───────────────────────────────────────────────────────────────
+  // 2) Если включили VQA — сбрасываем sortByCaption
+  // ───────────────────────────────────────────────────────────────
   useEffect(() => {
     if (useVQA) {
       setSortByCaption(false)
     }
   }, [useVQA])
 
-  // сохраняем в sessionStorage при изменении важных состояний
-   // сохраняем в sessionStorage при изменении всех «важных» состояний,
-  // включая class‐filter и уже полученный filteredPaintings
+  // ───────────────────────────────────────────────────────────────
+  // 3) Сохраняем в sessionStorage при изменении всех «важных» состояний
+  // ───────────────────────────────────────────────────────────────
   useEffect(() => {
     sessionStorage.setItem(
       'smartSearchState',
@@ -111,9 +118,8 @@ export default function SmartSearchPage() {
         selGenre,
         selYear,
         selArtist,
-        showClassFilter,                   // показывать или скрывать блок class‐filter
-        classFilterInput,                  // текст, который был введён в поле class‐filter
-        classFilterList                    // разобранный массив классов (max 4)
+        showClassFilter,
+        classFilterList                    // текущий массив добавленных классов
       })
     )
   }, [
@@ -127,58 +133,43 @@ export default function SmartSearchPage() {
     selYear,
     selArtist,
     showClassFilter,
-    classFilterInput,
     classFilterList
   ])
 
-
-  // ================================
-  // Функция для отправки запроса на фильтрацию по детектированным классам
-  // ================================
+  // ───────────────────────────────────────────────────────────────
+  // 4) applyClassFilter – запрос на фильтрацию по детектированным классам
+  // ───────────────────────────────────────────────────────────────
   const applyClassFilter = async () => {
-    // 1) Разбираем введённую пользователем строку в массив до 4 уникальных классов
-    let arr = classFilterInput
-      .split(/[;\s,]+/)           // разделяем по любому из символов: ;  или пробел, или запятая
-      .map(x => x.trim().toLowerCase())
-      .filter(x => x.length > 0)
-
-    arr = Array.from(new Set(arr)).slice(0, 4)  // убираем дубликаты и оставляем максимум 4
-    setClassFilterList(arr)
-
-    if (arr.length === 0) {
-      // Если пользователь ничего не ввёл (или удалил ввод), то сбрасываем фильтр:
+    if (classFilterList.length === 0) {
+      // Если никто не добавлен — показываем все
       setFilteredPaintings(similarPaintings)
       return
     }
 
-    // 2) Собираем все ID текущих картин из similarPaintings
     const allIds = similarPaintings.map(p => p.id)
-
-    setIsApplyingClassFilter(true) // включаем индикатор загрузки
+    setIsApplyingClassFilter(true)
 
     try {
-      const resp = await fetch("http://147.175.106.196:60000/filter_by_detected_classes/", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ids: allIds,
-          classes: arr
-        })
+      const resp = await fetch('http://147.175.106.196:60000/filter_by_detected_classes/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: allIds, classes: classFilterList })
       })
       const data = await resp.json()
       const passedIds = data.ids || []
 
-      // 3) Отфильтровываем similarPaintings, оставляя только те, чей id вернулся из backend
       const afterClassFilter = similarPaintings.filter(p => passedIds.includes(p.id))
       setFilteredPaintings(afterClassFilter)
     } catch (err) {
-      console.error("Error while applying class filter:", err)
+      console.error('Error while applying class filter:', err)
     } finally {
       setIsApplyingClassFilter(false)
     }
   }
 
-  // --- 1) Smart search + подгрузка деталей ---
+  // ───────────────────────────────────────────────────────────────
+  // 5) doSearch – умный поиск + сброс ВСЕХ фильтров прежде, чем отправить запрос
+  // ───────────────────────────────────────────────────────────────
   const doSearch = async () => {
     if (!vectorQuery.trim()) {
       alert('Введите запрос!')
@@ -192,11 +183,11 @@ export default function SmartSearchPage() {
     setSelGenre('')
     setSelYear('')
     setSelArtist('')
-    setClassFilterInput('')
     setClassFilterList([])
     setShowClassFilter(false)
-    setFilteredPaintings([])        // очищаем предыдущие отфильтрованные
-    setSimilarPaintings([])         // (опционально) очищаем, чтобы не мелькали старые
+    setNewClassInput('')
+    setFilteredPaintings([])
+    setSimilarPaintings([])
 
     try {
       const endpoint = useVQA
@@ -214,7 +205,6 @@ export default function SmartSearchPage() {
       const data = await resp.json()
       const raw = data.results || []
 
-      // дополняем деталями и унифицируем поле distance
       const enriched = await Promise.all(
         raw.map(async item => {
           const detail = await fetch(
@@ -225,7 +215,6 @@ export default function SmartSearchPage() {
         })
       )
 
-      // Устанавливаем новые full-результаты и сбрасываем отфильтрованные
       setSimilarPaintings(enriched)
       setFilteredPaintings(enriched)
     } catch (err) {
@@ -237,14 +226,12 @@ export default function SmartSearchPage() {
     }
   }
 
-  // --- 2) локальная фильтрация по жанру/году/художнику (+ classFilterList) ---
+  // ───────────────────────────────────────────────────────────────
+  // 6) useEffect: фильтрация по genre / year / artist поверх «class-filter»
+  // ───────────────────────────────────────────────────────────────
   useEffect(() => {
-    // Если ещё не дошли до инициализации из sessionStorage – не фильтруем
-    if (!isInitialized) {
-      return
-    }
+    if (!isInitialized) return
 
-    // Иначе – применяем фильтр поверх (genre/year/artist + class-filter)
     let baseList = similarPaintings
     if (classFilterList.length > 0) {
       baseList = filteredPaintings
@@ -260,7 +247,9 @@ export default function SmartSearchPage() {
     setFilteredPaintings(f)
   }, [isInitialized, similarPaintings, selGenre, selYear, selArtist, classFilterList])
 
-  // --- 3) обновление опций селектов из отфильтрованного списка ---
+  // ───────────────────────────────────────────────────────────────
+  // 7) useEffect: обновляем опции селектов (genre/year/artist)
+  // ───────────────────────────────────────────────────────────────
   useEffect(() => {
     const gSet = new Set()
     const ySet = new Set()
@@ -275,10 +264,52 @@ export default function SmartSearchPage() {
     setArtists([...aSet])
   }, [filteredPaintings])
 
+  // ───────────────────────────────────────────────────────────────
+  // 8) Закрытие / открытие Help-модального
+  // ───────────────────────────────────────────────────────────────
+  const closeHelpModal = () => setShowHelpModal(false)
+  const openHelpModal = () => setShowHelpModal(true)
+
+  // ───────────────────────────────────────────────────────────────
+  // 9) Добавление нового класса при клике «Add»
+  // ───────────────────────────────────────────────────────────────
+  const handleAddClass = () => {
+    const cls = newClassInput.trim().toLowerCase()
+    if (
+      cls.length > 0 &&
+      !classFilterList.includes(cls) &&
+      classFilterList.length < 4
+    ) {
+      setClassFilterList([...classFilterList, cls])
+      setNewClassInput('')
+    }
+  }
+
+  // ───────────────────────────────────────────────────────────────
+  // 10) Удаление класса из списка при клике на ×
+  // ───────────────────────────────────────────────────────────────
+  const handleRemoveClass = (cls) => {
+    setClassFilterList(classFilterList.filter(c => c !== cls))
+  }
+
+  // ───────────────────────────────────────────────────────────────
+  // 11) JSX-разметка
+  // ───────────────────────────────────────────────────────────────
   return (
     <div className="container my-4">
       {/* === INPUT & OPTIONS === */}
       <div className="mb-3 d-flex gap-2 align-items-center">
+
+        {/* === Help-кнопка «?» слева от поля ввода === */}
+        <button
+          type="button"
+          className="btn btn-link text-decoration-none p-0 me-2"
+          onClick={openHelpModal}
+          style={{ fontSize: '1.25rem', color: '#0d6efd' }}
+        >
+          <FaQuestionCircle />
+        </button>
+
         {/* Поле ввода умного поиска */}
         <input
           className="form-control"
@@ -288,7 +319,7 @@ export default function SmartSearchPage() {
         />
 
         {/* Checkbox «Use VQA» */}
-        <div className="form-check">
+        <div className="form-check ms-2">
           <input
             id="vqa"
             type="checkbox"
@@ -303,7 +334,7 @@ export default function SmartSearchPage() {
 
         {/* Показываем только если VQA выключен */}
         {!useVQA && (
-          <div className="form-check">
+          <div className="form-check ms-2">
             <input
               id="sortCaption"
               type="checkbox"
@@ -319,7 +350,7 @@ export default function SmartSearchPage() {
 
         {/* Если сортировка по подписи включена, показываем ползунок веса */}
         {sortByCaption && (
-          <div className="d-flex align-items-center gap-2">
+          <div className="d-flex align-items-center gap-2 ms-2">
             <label htmlFor="captionWeight" className="mb-0">
               Image: {(100 - captionWeight * 100).toFixed(0)}%,
               Description: {(captionWeight * 100).toFixed(0)}%
@@ -339,40 +370,76 @@ export default function SmartSearchPage() {
         )}
 
         {/* Кнопка «Search»: сбрасывает все фильтры и отправляет новый запрос */}
-        <button className="btn btn-secondary btn-sm" onClick={doSearch}>
+        <button className="btn btn-secondary btn-sm ms-2" onClick={doSearch}>
           Search
         </button>
 
         {/* Кнопка «Filter by Detected Classes» (компактная) */}
         <button
-          className="btn btn-outline-primary btn-sm"
+          className="btn btn-outline-primary btn-sm ms-2"
           onClick={() => setShowClassFilter(prev => !prev)}
         >
-          {showClassFilter ? "Hide Class Filter" : "Filter by Detected Classes"}
+          {showClassFilter ? 'Hide Class Filter' : 'Filter by Detected Classes'}
         </button>
       </div>
 
       {/* === Блок фильтрации по классам (появляется, когда showClassFilter=true) === */}
       {showClassFilter && (
-        <div className="mb-3 d-flex gap-2 align-items-center">
-          <input
-            type="text"
-            className="form-control"
-            placeholder="Введите до 4 классов (через пробел, ; или ,)"
-            value={classFilterInput}
-            onChange={e => setClassFilterInput(e.target.value)}
-          />
-          <button
-            className="btn btn-primary btn-sm"
-            disabled={isApplyingClassFilter}
-            onClick={applyClassFilter}
-          >
-            {isApplyingClassFilter ? (
-              <span className="spinner-border spinner-border-sm" role="status" />
-            ) : (
-              "Apply"
-            )}
-          </button>
+        <div className="mb-3">
+          <div className="d-flex gap-2 align-items-center">
+            {/* Поле для ввода одного класса */}
+            <input
+              type="text"
+              className="form-control form-control-sm"
+              placeholder="Enter a class (e.g. dog)"
+              value={newClassInput}
+              onChange={e => setNewClassInput(e.target.value)}
+            />
+            {/* Кнопка «Add» */}
+            <button
+              className="btn btn-primary btn-sm"
+              disabled={newClassInput.trim() === '' || classFilterList.length >= 4}
+              onClick={handleAddClass}
+            >
+              Add
+            </button>
+          </div>
+
+          {/* Список «пилочек» добавленных классов */}
+          <div className="mt-2">
+            {classFilterList.map((cls, idx) => (
+              <span
+                key={idx}
+                className="badge bg-secondary text-white me-1 mb-1"
+                style={{ fontSize: '0.9rem', padding: '0.4rem 0.6rem' }}
+              >
+                {cls}{' '}
+                <FaTimesCircle
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleRemoveClass(cls)}
+                />
+              </span>
+            ))}
+          </div>
+
+          {/* Кнопка «Apply» */}
+          <div className="mt-2">
+            <button
+              className="btn btn-success btn-sm"
+              disabled={isApplyingClassFilter}
+              onClick={applyClassFilter}
+            >
+              {isApplyingClassFilter ? (
+                <span className="spinner-border spinner-border-sm" role="status" />
+              ) : (
+                'Apply'
+              )}
+            </button>
+            {/* Подсказка, сколько ещё можно добавить */}
+            <small className="text-muted ms-2">
+              {classFilterList.length}/4 added
+            </small>
+          </div>
         </div>
       )}
 
@@ -387,7 +454,9 @@ export default function SmartSearchPage() {
           >
             <option value="">All</option>
             {genres.map(g => (
-              <option key={g} value={g}>{g}</option>
+              <option key={g} value={g}>
+                {g}
+              </option>
             ))}
           </select>
         </div>
@@ -400,7 +469,9 @@ export default function SmartSearchPage() {
           >
             <option value="">All</option>
             {years.map(y => (
-              <option key={y} value={y}>{y}</option>
+              <option key={y} value={y}>
+                {y}
+              </option>
             ))}
           </select>
         </div>
@@ -413,7 +484,9 @@ export default function SmartSearchPage() {
           >
             <option value="">All</option>
             {artists.map(a => (
-              <option key={a} value={a}>{a}</option>
+              <option key={a} value={a}>
+                {a}
+              </option>
             ))}
           </select>
         </div>
@@ -468,6 +541,67 @@ export default function SmartSearchPage() {
       {!loading && similarPaintings.length === 0 && hasSearched && (
         <div className="text-center py-5">
           <h5>Nothing found for the query "{lastSearchedQuery}"</h5>
+        </div>
+      )}
+
+      {/* === Help-модальное окно === */}
+      {showHelpModal && (
+        <div
+          className="modal d-block"
+          tabIndex="-1"
+          role="dialog"
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+        >
+          <div className="modal-dialog modal-dialog-centered" role="document">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Help</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  aria-label="Close"
+                  onClick={closeHelpModal}
+                />
+              </div>
+              <div className="modal-body">
+                <p>
+                  <strong>Search:</strong> Performs a <em>vector-based</em> search of paintings. It retrieves
+                  images most similar to your query using embeddings.
+                </p>
+                <p>
+                  <strong>Use VQA:</strong> When checked, the system will use Visual Question Answering (VQA) on
+                  each candidate painting. In this mode, Paligemma answers “does this image contain &lt;your
+                  query&gt;?” and only paintings with a “yes” answer will be returned.
+                </p>
+                <p>
+                  <strong>Sort by AI Description:</strong> When unchecked, results are sorted purely by image
+                  similarity. If you enable this checkbox, results will be re-ranked by combining image
+                  similarity and similarity between your query and the AI-generated text description of each
+                  painting. Use the slider to adjust the weight.
+                </p>
+                <p>
+                  <strong>Filter by Detected Classes:</strong> Opens a small input field where you can type one
+                  object class at a time and click “Add.” You may add up to 4 unique classes in total. The
+                  added classes appear as pills with “×” to remove. After adding desired classes, click
+                  “Apply” to send them to the server for filtering (only paintings containing at least 75%
+                  of your specified classes will remain).
+                </p>
+                <p>
+                  <strong>Genre / Year / Artist Filters:</strong> After receiving search results, you can further
+                  narrow down the list by selecting a genre, a year, or an artist from the dropdown menus.
+                </p>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={closeHelpModal}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -11,4 +11,4 @@ class ArtistAdmin(admin.ModelAdmin):
 class PaintingAdmin(admin.ModelAdmin):
     list_display = ("filename", "artist", "genre", "width", "height")
     search_fields = ("filename", "genre")
-    list_filter = ("genre", "subset")
+    list_filter = ("genre",)

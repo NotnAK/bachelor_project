@@ -1,20 +1,15 @@
-from math import ceil
 from django.db.models import Q
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-from bp_backend.models import Painting, Artist
-import ast
 import sys
 
 import numpy as np
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from django.db import connection
-from bp_backend.models import Painting
 
 from PIL import Image
-import os
 import numpy as np
 from PIL import Image
 import ml_collections
@@ -27,7 +22,6 @@ from math import ceil
 from django.db.models import Q
 
 import ast
-import logging
 
 import logging
 
@@ -44,8 +38,8 @@ from big_vision.models.proj.paligemma import paligemma
 from big_vision.trainers.proj.paligemma import predict_fns
 
 
-MODEL_PATH = "./paligemma-3b-mix-448.f16.npz"
-TOKENIZER_PATH = "/home/xkolotusha_122311/bp_backend/paligemma_tokenizer.model"
+MODEL_PATH = "./models/paligemma-3b-mix-448.f16.npz"
+TOKENIZER_PATH = "./models/paligemma_tokenizer.model"
 model_config = ml_collections.FrozenConfigDict({
     "llm": {"vocab_size": 257_152},
     "img": {"variant": "So400m/14", "pool_type": "none", "scan": True, "dtype_mm": "float16"}
@@ -195,7 +189,6 @@ def paintings_list(request):
             "filename": p.filename,
             "genre": p.genre,  # Оставим оригинальную строку
             "name": p.name,
-            "phash": p.phash,
             "width": p.width,
             "height": p.height,
             "genre_count": p.genre_count,
@@ -222,7 +215,6 @@ def painting_detail(request, pk):
         "genre": painting.genre,
         "name": painting.name,
         "detailed_caption": painting.detailed_caption,  # <-- Добавлено
-        "phash": painting.phash,
         "width": painting.width,
         "height": painting.height,
         "genre_count": painting.genre_count,
@@ -360,7 +352,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from bp_backend.models import Painting
-from text_embedding_clip_768 import generate_text_embedding_clip
+from scripts.text_embedding_clip_768 import generate_text_embedding_clip
 
 @api_view(["POST"])
 def search_similar_paintings_clip(request):
@@ -492,7 +484,7 @@ def search_similar_paintings_clip_vqa(request):
 
     try:
         logger.debug("Генерация CLIP эмбеддинга...")
-        from text_embedding_clip_768 import generate_text_embedding_clip
+        from scripts.text_embedding_clip_768 import generate_text_embedding_clip
         text_emb = generate_text_embedding_clip(query)
         logger.debug("Эмбеддинг успешно сгенерирован, размерность: %s", text_emb.shape)
     except Exception as e:
