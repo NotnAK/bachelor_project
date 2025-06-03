@@ -1,15 +1,15 @@
 from django.db import models
-from pgvector.django import VectorField  # <-- важно
+from pgvector.django import VectorField
 
 class Artist(models.Model):
-    artist_id = models.IntegerField(blank=True, null=True)  # поле из CSV (id)
+    artist_id = models.IntegerField(blank=True, null=True)
     name = models.CharField(max_length=255)
     years = models.CharField(max_length=100, blank=True, null=True)
     genre = models.CharField(max_length=100, blank=True, null=True)
     nationality = models.CharField(max_length=100, blank=True, null=True)
     bio = models.TextField(blank=True, null=True)
     wikipedia = models.URLField(blank=True, null=True)
-    paintings = models.IntegerField(blank=True, null=True)  # кол-во картин
+    paintings = models.IntegerField(blank=True, null=True)
 
     def __str__(self):
         return self.name
