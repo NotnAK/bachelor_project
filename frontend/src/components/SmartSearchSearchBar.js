@@ -98,7 +98,7 @@ export default function SmartSearchSearchBar({
         className="btn btn-outline-primary btn-sm ms-2"
         onClick={() => setShowClassFilter(prev => !prev)}
       >
-        {showClassFilter ? 'Hide Class Filter' : 'Filter by Detected Classes'}
+            {showClassFilter ? 'Hide Classes' : 'Class Filter'}
       </button>
     </div>
   )

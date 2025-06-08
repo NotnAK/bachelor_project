@@ -40,7 +40,7 @@ export default function SmartSearchHelpModal({ showHelpModal, closeHelpModal }) 
                   painting. Use the slider to adjust the weight.
                 </p>
                 <p>
-                  <strong>Filter by Detected Classes:</strong> Opens a small input field where you can type one
+                  <strong>Class Filter:</strong> Opens a small input field where you can type one
                   object class at a time and click “Add.” You may add up to 4 unique classes in total. The
                   added classes appear as pills with “×” to remove. After adding desired classes, click
                   “Apply” to send them to the server for filtering (only paintings containing at least 75%

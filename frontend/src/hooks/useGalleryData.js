@@ -36,7 +36,6 @@ export function useGalleryData({ page, sortBy, sortOrder, searchText, selectedGe
     }
   };
 
-  // Функция загрузки опций фильтров (fetchFilterOptions)
   const fetchFilterOptions = async () => {
     try {
       const params = new URLSearchParams({ search: searchText });
@@ -54,7 +53,6 @@ export function useGalleryData({ page, sortBy, sortOrder, searchText, selectedGe
     }
   };
 
-  // Эффекты, похожие на ваши useEffect’ы в оригинале
   useEffect(() => {
     fetchPaintings();
   }, [page, sortBy, sortOrder, searchText, selectedGenre, selectedYear, selectedArtist, pageSize]);
@@ -70,6 +68,6 @@ export function useGalleryData({ page, sortBy, sortOrder, searchText, selectedGe
     years,
     artists,
     loading,
-    refetch: fetchPaintings // если понадобится ручной триггер
+    refetch: fetchPaintings
   };
 }

@@ -14,7 +14,6 @@ function GalleryPage() {
   const location = useLocation();
   const query = new URLSearchParams(location.search);
 
-  // 1) Читаем начальные значения из URL
   const [page, setPage]                     = useState(+query.get('page')      || 1);
   const [searchText, setSearchText]         = useState(query.get('search')    || '');
   const [selectedGenre, setSelectedGenre]   = useState(query.get('genre')     || '');
@@ -24,7 +23,6 @@ function GalleryPage() {
   const [sortOrder, setSortOrder]           = useState(query.get('order')     || 'asc');
   const [pageSize, setPageSize]             = useState(+query.get('page_size')|| 10);
 
-  // 2) Вызываем хук, который возвращает данные и стейты
   const {
     paintings,
     totalPages,
@@ -43,7 +41,6 @@ function GalleryPage() {
     pageSize
   });
 
-  // 3) Синхронизация URL при изменении фильтров/страницы
   useEffect(() => {
     const params = new URLSearchParams();
     if (searchText)     params.set('search', searchText);
@@ -57,7 +54,6 @@ function GalleryPage() {
     navigate(`?${params.toString()}`, { replace: true });
   }, [page, searchText, selectedGenre, selectedYear, selectedArtist, sortBy, sortOrder, pageSize, navigate]);
 
-  // 4) Обработчики изменения полей
   const resetPage = () => setPage(1);
   const handleSearchChange   = e => { setSearchText(e.target.value); resetPage(); };
   const handleGenreChange    = e => { setSelectedGenre(e.target.value); resetPage(); };
@@ -68,7 +64,7 @@ function GalleryPage() {
 
   return (
     <div className="container my-4">
-      {/* 5) Рендерим FilterBar */}
+      {/* Rendering FilterBar */}
       <FilterBar
         searchText={searchText}
         onSearchChange={handleSearchChange}
@@ -83,7 +79,7 @@ function GalleryPage() {
         artists={artists}
       />
 
-      {/* 6) Рендерим Pagination сверху */}
+      {/*  Rendering Pagination from above */}
       <PaginationBar
         page={page}
         totalPages={totalPages}
@@ -92,10 +88,10 @@ function GalleryPage() {
         onPageSizeChange={handlePageSizeChange}
       />
 
-      {/* 7) Рендерим саму сетку (или загрузчик) */}
+      {/* Rendering the mesh itself (or the loader) */}
       <PaintingGrid paintings={paintings} loading={loading} />
 
-      {/* 8) Пагинация снизу */}
+      {/* Pagination from below*/}
       <PaginationBar
         page={page}
         totalPages={totalPages}

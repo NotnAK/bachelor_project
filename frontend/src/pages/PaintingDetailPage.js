@@ -3,7 +3,7 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import '../GalleryPage.css'; // содержит .img-detail-preview
+import '../GalleryPage.css';
 
 import { normalizeGenre } from '../utils/normalizeGenre';
 import { usePaintingDetail } from '../hooks/usePaintingDetail';

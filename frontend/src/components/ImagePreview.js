@@ -3,12 +3,7 @@
 import React, { useEffect } from 'react';
 import { Fancybox } from "@fancyapps/ui";
 import "@fancyapps/ui/dist/fancybox/fancybox.css";
-
-// Параметры:
-//   imageUrl — URL исходного изображения (для href и src)
-//   caption  — подпись (painting.name)
 function ImagePreview({ imageUrl, caption }) {
-  // При монтировании биндить Fancybox, при размонтировании — отрабатывать unbind/close
   useEffect(() => {
     Fancybox.bind("[data-fancybox]", {});
     return () => {

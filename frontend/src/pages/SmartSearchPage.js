@@ -6,10 +6,8 @@ import 'bootstrap/dist/css/bootstrap.min.css'
 import '../GalleryPage.css'
 import { normalizeGenre } from '../utils/normalizeGenre'
 
-// Иконка вопроса (из react-icons)
 import { FaTimesCircle } from 'react-icons/fa'
 
-// Вносим наши новые компоненты:
 import SmartSearchSearchBar from '../components/SmartSearchSearchBar'
 import SmartSearchClassFilter from '../components/SmartSearchClassFilter'
 import SmartSearchFilters from '../components/SmartSearchFilters'
@@ -20,47 +18,42 @@ import SmartSearchHelpModal from '../components/SmartSearchHelpModal'
 export default function SmartSearchPage() {
   const location = useLocation()
 
-  // флаг, чтобы не выполнять «лишнюю» фильтрацию при первичной загрузке из sessionStorage
   const [isInitialized, setIsInitialized] = useState(false)
 
-  // — поисковый ввод + режим VQA и сортировка по caption
+
   const [vectorQuery, setVectorQuery]     = useState('')
   const [useVQA, setUseVQA]               = useState(false)
   const [sortByCaption, setSortByCaption] = useState(false)
   const [captionWeight, setCaptionWeight] = useState(0) // 0…1
 
-  // — полные и отфильтрованные результаты
+
   const [similarPaintings, setSimilarPaintings]   = useState([])
   const [filteredPaintings, setFilteredPaintings] = useState([])
 
-  // — опции фильтров
+
   const [genres, setGenres]   = useState([])
   const [years, setYears]     = useState([])
   const [artists, setArtists] = useState([])
 
-  // — выбранные фильтры (genre/year/artist)
+
   const [selGenre, setSelGenre]   = useState('')
   const [selYear, setSelYear]     = useState('')
   const [selArtist, setSelArtist] = useState('')
 
   const [loading, setLoading] = useState(false)
 
-  // — состояния для фильтрации по классам, детектируемым Paligemma:
-  //    теперь: вводим один класс за раз, нажимаем "Add" → попадает в массив classFilterList
+
   const [showClassFilter, setShowClassFilter]             = useState(false)
-  const [newClassInput, setNewClassInput]                 = useState('')   // ввод одного класса
-  const [classFilterList, setClassFilterList]             = useState([])   // массив добавленных классов (max 4)
-  const [isApplyingClassFilter, setIsApplyingClassFilter] = useState(false) // индикатор, что запрос к /filter_by_detected_classes/ выполняется
+  const [newClassInput, setNewClassInput]                 = useState('')
+  const [classFilterList, setClassFilterList]             = useState([])
+  const [isApplyingClassFilter, setIsApplyingClassFilter] = useState(false)
 
   const [hasSearched, setHasSearched] = useState(false)
   const [lastSearchedQuery, setLastSearchedQuery] = useState('')
 
-  // — состояние для показа/скрытия Help-модального окна
+
   const [showHelpModal, setShowHelpModal] = useState(false)
 
-  // ───────────────────────────────────────────────────────────────
-  // 1) при маунте: восстанавливаем state из sessionStorage
-  // ───────────────────────────────────────────────────────────────
   useEffect(() => {
     const saved = sessionStorage.getItem('smartSearchState')
     if (saved) {
@@ -76,7 +69,6 @@ export default function SmartSearchPage() {
           selYear: y,
           selArtist: a,
           showClassFilter: scf,
-          // вместо classFilterInput и classFilterList старого формата
           classFilterList: cfl
         } = JSON.parse(saved)
 
@@ -101,18 +93,12 @@ export default function SmartSearchPage() {
     setIsInitialized(true)
   }, [])
 
-  // ───────────────────────────────────────────────────────────────
-  // 2) Если включили VQA — сбрасываем sortByCaption
-  // ───────────────────────────────────────────────────────────────
   useEffect(() => {
     if (useVQA) {
       setSortByCaption(false)
     }
   }, [useVQA])
 
-  // ───────────────────────────────────────────────────────────────
-  // 3) Сохраняем в sessionStorage при изменении всех «важных» состояний
-  // ───────────────────────────────────────────────────────────────
   useEffect(() => {
     sessionStorage.setItem(
       'smartSearchState',
@@ -121,13 +107,13 @@ export default function SmartSearchPage() {
         useVQA,
         sortByCaption,
         captionWeight,
-        results: similarPaintings,         // полный список «полученных» картин
-        filtered: filteredPaintings,       // уже отфильтрованные (genre/year/artist + class‐filter)
+        results: similarPaintings,
+        filtered: filteredPaintings,
         selGenre,
         selYear,
         selArtist,
         showClassFilter,
-        classFilterList                    // текущий массив добавленных классов
+        classFilterList
       })
     )
   }, [
@@ -144,12 +130,8 @@ export default function SmartSearchPage() {
     classFilterList
   ])
 
-  // ───────────────────────────────────────────────────────────────
-  // 4) applyClassFilter – запрос на фильтрацию по детектированным классам
-  // ───────────────────────────────────────────────────────────────
   const applyClassFilter = async () => {
     if (classFilterList.length === 0) {
-      // Если никто не добавлен — показываем все
       setFilteredPaintings(similarPaintings)
       return
     }
@@ -175,9 +157,6 @@ export default function SmartSearchPage() {
     }
   }
 
-  // ───────────────────────────────────────────────────────────────
-  // 5) doSearch – умный поиск + сброс ВСЕХ фильтров прежде, чем отправить запрос
-  // ───────────────────────────────────────────────────────────────
   const doSearch = async () => {
     if (!vectorQuery.trim()) {
       alert('Введите запрос!')
@@ -187,7 +166,6 @@ export default function SmartSearchPage() {
     setHasSearched(true)
     setLastSearchedQuery(vectorQuery)
 
-    // При новом поиске СБРАСЫВАЕМ все фильтры и результаты
     setSelGenre('')
     setSelYear('')
     setSelArtist('')
@@ -234,9 +212,6 @@ export default function SmartSearchPage() {
     }
   }
 
-  // ───────────────────────────────────────────────────────────────
-  // 6) useEffect: фильтрация по genre / year / artist поверх «class-filter»
-  // ───────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!isInitialized) return
 
@@ -255,9 +230,6 @@ export default function SmartSearchPage() {
     setFilteredPaintings(f)
   }, [isInitialized, similarPaintings, selGenre, selYear, selArtist, classFilterList])
 
-  // ───────────────────────────────────────────────────────────────
-  // 7) useEffect: обновляем опции селектов (genre/year/artist)
-  // ───────────────────────────────────────────────────────────────
   useEffect(() => {
     const gSet = new Set()
     const ySet = new Set()
@@ -272,15 +244,9 @@ export default function SmartSearchPage() {
     setArtists([...aSet])
   }, [filteredPaintings])
 
-  // ───────────────────────────────────────────────────────────────
-  // 8) Закрытие / открытие Help-модального
-  // ───────────────────────────────────────────────────────────────
   const closeHelpModal = () => setShowHelpModal(false)
   const openHelpModal = () => setShowHelpModal(true)
 
-  // ───────────────────────────────────────────────────────────────
-  // 9) Добавление нового класса при клике «Add»
-  // ───────────────────────────────────────────────────────────────
   const handleAddClass = () => {
     const cls = newClassInput.trim().toLowerCase()
     if (
@@ -293,16 +259,12 @@ export default function SmartSearchPage() {
     }
   }
 
-  // ───────────────────────────────────────────────────────────────
-  // 10) Удаление класса из списка при клике на ×
-  // ───────────────────────────────────────────────────────────────
+
   const handleRemoveClass = (cls) => {
     setClassFilterList(classFilterList.filter(c => c !== cls))
   }
 
-  // ───────────────────────────────────────────────────────────────
-  // 11) JSX-разметка
-  // ───────────────────────────────────────────────────────────────
+
   return (
     <div className="container my-4">
       {/* === INPUT & OPTIONS === */}
@@ -321,7 +283,7 @@ export default function SmartSearchPage() {
         openHelpModal={openHelpModal}
       />
 
-      {/* === Блок фильтрации по классам (появляется, когда showClassFilter=true) === */}
+      {/* === Class filtering block (appears when showClassFilter=true) === */}
       <SmartSearchClassFilter
         showClassFilter={showClassFilter}
         newClassInput={newClassInput}
@@ -346,7 +308,7 @@ export default function SmartSearchPage() {
         artists={artists}
       />
 
-      {/* === LOADER (спиннер) === */}
+      {/* === LOADER === */}
       {loading && (
         <div className="text-center my-5">
           <div className="spinner-border" role="status" />
@@ -372,7 +334,7 @@ export default function SmartSearchPage() {
         />
       )}
 
-      {/* === Help-модальное окно === */}
+      {/* === Help === */}
       <SmartSearchHelpModal
         showHelpModal={showHelpModal}
         closeHelpModal={closeHelpModal}

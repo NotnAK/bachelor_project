@@ -66,7 +66,7 @@ export default function SmartSearchClassFilter({
                 'Apply'
               )}
             </button>
-            {/* Подсказка, сколько ещё можно добавить */}
+            {/* A hint as to how much more to add */}
             <small className="text-muted ms-2">
               {classFilterList.length}/4 added
             </small>
