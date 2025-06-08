@@ -12,17 +12,26 @@ django.setup()
 from bp_backend.models import Painting
 
 # Load model and processor
-model_id = "microsoft/Florence-2-large-ft"
-# or you can use microsoft/Florence-2-large
-model = AutoModelForCausalLM.from_pretrained(model_id, trust_remote_code=True, torch_dtype='auto').eval().cuda()
-processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
+model_id = "microsoft/Florence-2-large"
+model = AutoModelForCausalLM.from_pretrained(
+    model_id, trust_remote_code=True, torch_dtype='auto'
+).eval().cuda()
+processor = AutoProcessor.from_pretrained(
+    model_id, trust_remote_code=True
+)
 
 # Prompt to generate captions
 task_prompt = "<MORE_DETAILED_CAPTION>"
 
+# Global “environment variable” for folder prefix
+PREFIX = "Realism/"
+
 def run_caption(image: Image.Image, task_prompt: str) -> str:
-    prompt = task_prompt
-    inputs = processor(text=prompt, images=image, return_tensors="pt").to("cuda", torch.float16)
+    inputs = processor(
+        text=task_prompt,
+        images=image,
+        return_tensors="pt"
+    ).to("cuda", torch.float16)
 
     with torch.no_grad():
         generated_ids = model.generate(
@@ -34,51 +43,90 @@ def run_caption(image: Image.Image, task_prompt: str) -> str:
             num_beams=3,
         )
 
-    generated_text = processor.batch_decode(generated_ids, skip_special_tokens=False)[0]
-    parsed_answer = processor.post_process_generation(
+    generated_text = processor.batch_decode(
+        generated_ids,
+        skip_special_tokens=False
+    )[0]
+    parsed = processor.post_process_generation(
         generated_text,
         task=task_prompt,
         image_size=(image.width, image.height)
     )
-    if isinstance(parsed_answer, dict):
-        return parsed_answer.get("<MORE_DETAILED_CAPTION>", "")
-    return parsed_answer
+    if isinstance(parsed, dict):
+        return parsed.get(task_prompt, "")
+    return parsed
 
 def generate_detailed_captions_for_paintings():
-    qs = Painting.objects.filter(filename__startswith="Northern_Renaissance/")
-    print(f"Found {qs.count()} paintings for detailed caption generation.")
+    """
+    Original function – do NOT change logic:
+    uses global PREFIX and filters:
+      Painting.objects.filter(filename__startswith=PREFIX)
+    Now prints index and marks if a caption already exists.
+    """
+    qs = Painting.objects.filter(filename__startswith=PREFIX)
+    total = qs.count()
+    print(f"🔍 Found {total} paintings (PREFIX={PREFIX}).\n")
 
-    count = 0
-    for painting in qs:
+    updated = 0
+    for idx, painting in enumerate(qs, start=1):
+        # Print index and filename
+        print(f"{idx}. {painting.filename} —", end=" ")
+
+        # If a caption already exists, skip generation
+        if painting.detailed_caption:
+            print("skipped (caption already exists)")
+            continue
+
+        # Otherwise – generate
         image_path = os.path.join("media", "extracted_paintings", painting.filename)
         if not os.path.exists(image_path):
-            print(f"❌ File not found: {image_path}")
+            print("❌ file not found")
             continue
 
         try:
             with Image.open(image_path) as img:
                 img = img.convert("RGB")
         except Exception as e:
-            print(f"❌ Error opening {image_path}: {e}")
+            print(f"❌ error opening: {e}")
             continue
 
         try:
             caption = run_caption(img, task_prompt)
         except Exception as e:
-            print(f"❌ Error generating caption for {painting.filename}: {e}")
-            continue
-        if painting.detailed_caption:
-            print("Skipped (caption already exists)")
-            print("Old caption: " + painting.detailed_caption)
-            print("\nNew caption: " + caption)
+            print(f"❌ generation error: {e}")
             continue
 
+        # Save and mark
         painting.detailed_caption = caption
         painting.save()
-        print(f"✅ Updated detailed caption for: {painting.filename}")
-        count += 1
+        updated += 1
+        print("✅ updated")
 
-    print(f"🎉 Total detailed captions updated for {count} paintings.")
+    print(f"\n🎉 Total captions updated: {updated} out of {total}.")
+
+def generate_all_captions():
+    """
+    New wrapper: iterates through all subdirectories
+    in media/extracted_paintings and for each changes PREFIX,
+    then calls generate_detailed_captions_for_paintings().
+    """
+    global PREFIX
+
+    base_dir = os.path.join("media", "extracted_paintings")
+    prefixes = [
+        name for name in os.listdir(base_dir)
+        if os.path.isdir(os.path.join(base_dir, name))
+    ]
+
+    for p in sorted(prefixes):
+        PREFIX = f"{p}/"
+        print("\n" + "="*80)
+        print(f"🎯 Processing category: {PREFIX}")
+        generate_detailed_captions_for_paintings()
 
 if __name__ == "__main__":
-    generate_detailed_captions_for_paintings()
+    # For a single category:
+    # generate_detailed_captions_for_paintings()
+
+    # Or to do all at once:
+    generate_all_captions()

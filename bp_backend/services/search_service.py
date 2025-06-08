@@ -23,7 +23,7 @@ def search_similar_paintings_clip_service(query: str, caption_weight: float) -> 
     except that we've lifted it into a service.
     """
     # 1) CLIP text vector (since you generate it “on the fly”)
-    from scripts.text_embedding_clip_768 import generate_text_embedding_clip
+    from scripts.text_embedding_clip import generate_text_embedding_clip
     text_emb = generate_text_embedding_clip(query)  # numpy array (768,)
     text_emb_list = text_emb.tolist()
 
@@ -91,7 +91,7 @@ def search_similar_paintings_clip_vqa_service(query: str) -> list[dict]:
     logger.debug("== Starting search_similar_paintings_clip_vqa_service ==")
     # 1) Generate CLIP embedding
     try:
-        from scripts.text_embedding_clip_768 import generate_text_embedding_clip
+        from scripts.text_embedding_clip import generate_text_embedding_clip
         text_emb = generate_text_embedding_clip(query)
         logger.debug("Embedding successfully generated, shape: %s", text_emb.shape)
     except Exception as e:
