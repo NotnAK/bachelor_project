@@ -34,6 +34,10 @@ export default function SmartSearchHelpModal({ showHelpModal, closeHelpModal }) 
                   query&gt;?” and only paintings with a “yes” answer will be returned.
                 </p>
                 <p>
+                  ⚠️ Please avoid using very long queries when VQA is enabled.
+                  The model may not be able to process overly complex or lengthy inputs reliably.
+                </p>
+                <p>
                   <strong>Sort by AI Description:</strong> When unchecked, results are sorted purely by image
                   similarity. If you enable this checkbox, results will be re-ranked by combining image
                   similarity and similarity between your query and the AI-generated text description of each
@@ -53,9 +57,9 @@ export default function SmartSearchHelpModal({ showHelpModal, closeHelpModal }) 
               </div>
               <div className="modal-footer">
                 <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={closeHelpModal}
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={closeHelpModal}
                 >
                   Close
                 </button>
