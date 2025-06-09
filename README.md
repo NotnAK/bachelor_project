@@ -193,7 +193,7 @@ pg_restore \
    pip install --upgrade pip
    pip install -r requirements.txt
    ```
-
+⚠️ Note: Some packages in requirements.txt may fail to install due to version conflicts or platform-specific issues. In this situation, you will have to set it manually.
 ### 3.6. Run migrations & start the server
 
 > **Note:** Because the dump includes all past migrations (table `django_migrations`), running `migrate` will skip them and apply only any new ones.
