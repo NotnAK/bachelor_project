@@ -1,6 +1,7 @@
 // src/components/PaintingCard.js
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import {API_URL} from "../config";
 
 function PaintingCard({ painting }) {
   const location = useLocation();
@@ -10,7 +11,7 @@ function PaintingCard({ painting }) {
       <div className="card h-100 shadow-sm">
         <Link to={`/painting/${painting.id}${location.search}`}>
           <img
-            src={`http://147.175.106.196:60000/media/extracted_paintings/${painting.filename}`}
+            src={`${API_URL}/media/extracted_paintings/${painting.filename}`}
             alt={painting.name}
             className="card-img-top img-preview"
           />

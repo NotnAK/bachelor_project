@@ -14,6 +14,7 @@ import SmartSearchFilters from '../components/SmartSearchFilters'
 import SmartSearchResults from '../components/SmartSearchResults'
 import SmartSearchEmptyStates from '../components/SmartSearchEmptyStates'
 import SmartSearchHelpModal from '../components/SmartSearchHelpModal'
+import {API_URL} from "../config";
 
 export default function SmartSearchPage() {
   const location = useLocation()
@@ -140,7 +141,7 @@ export default function SmartSearchPage() {
     setIsApplyingClassFilter(true)
 
     try {
-      const resp = await fetch('http://147.175.106.196:60000/filter_by_detected_classes/', {
+      const resp = await fetch(API_URL +'/filter_by_detected_classes/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ids: allIds, classes: classFilterList })
@@ -177,9 +178,9 @@ export default function SmartSearchPage() {
 
     try {
       const endpoint = useVQA
-        ? 'http://147.175.106.196:60000/search_similar_paintings_clip_vqa/'
-        : 'http://147.175.106.196:60000/search_similar_clip/'
-      const resp = await fetch(endpoint, {
+        ? '/search_similar_paintings_clip_vqa/'
+        : '/search_similar_clip/'
+      const resp = await fetch(API_URL + endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -194,7 +195,7 @@ export default function SmartSearchPage() {
       const enriched = await Promise.all(
         raw.map(async item => {
           const detail = await fetch(
-            `http://147.175.106.196:60000/paintings/${item.id}/`
+            `${API_URL}/paintings/${item.id}/`
           ).then(r => r.json())
           const distance = item.image_distance ?? item.distance
           return { ...detail, distance }

@@ -10,6 +10,7 @@ import { usePaintingDetail } from '../hooks/usePaintingDetail';
 import BackButton from '../components/BackButton';
 import ImagePreview from '../components/ImagePreview';
 import PaintingInfo from '../components/PaintingInfo';
+import {API_URL} from "../config";
 
 export default function PaintingDetailPage() {
   const { id } = useParams();
@@ -19,7 +20,7 @@ export default function PaintingDetailPage() {
     return <div className="container text-center my-5">Loading...</div>;
   }
 
-  const imageUrl = `http://147.175.106.196:60000/media/extracted_paintings/${painting.filename}`;
+  const imageUrl = `${API_URL}/media/extracted_paintings/${painting.filename}`;
   const cleanedGenres = normalizeGenre(painting.genre).join(', ');
 
   return (

@@ -1,6 +1,7 @@
 // src/hooks/useGalleryData.js
 
 import { useState, useEffect } from 'react';
+import {API_URL} from "../config";
 
 export function useGalleryData({ page, sortBy, sortOrder, searchText, selectedGenre, selectedYear, selectedArtist, pageSize }) {
   const [paintings, setPaintings] = useState([]);
@@ -25,7 +26,7 @@ export function useGalleryData({ page, sortBy, sortOrder, searchText, selectedGe
       if (selectedYear)   params.append('year',   selectedYear);
       if (selectedArtist) params.append('artist', selectedArtist);
 
-      const resp = await fetch(`http://147.175.106.196:60000/paintings/?${params}`);
+      const resp = await fetch(`${API_URL}/paintings/?${params}`);
       const data = await resp.json();
       setPaintings(data.results);
       setTotalPages(data.total_pages);
@@ -43,7 +44,7 @@ export function useGalleryData({ page, sortBy, sortOrder, searchText, selectedGe
       if (selectedYear)   params.append('year',   selectedYear);
       if (selectedArtist) params.append('artist', selectedArtist);
 
-      const resp = await fetch(`http://147.175.106.196:60000/filter-options/?${params}`);
+      const resp = await fetch(`${API_URL}/filter-options/?${params}`);
       const data = await resp.json();
       setGenres(data.genres || []);
       setYears(data.years || []);

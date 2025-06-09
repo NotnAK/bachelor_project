@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { Link } from 'react-router-dom'
+import {API_URL} from "../config";
 
 export default function SmartSearchResults({ filteredPaintings, location }) {
   return (
@@ -11,7 +12,7 @@ export default function SmartSearchResults({ filteredPaintings, location }) {
           <div className="card h-100 shadow-sm">
             <Link to={`/painting/${p.id}${location.search}`}>
               <img
-                src={`http://147.175.106.196:60000/media/extracted_paintings/${p.filename}`}
+                src={`${API_URL}/media/extracted_paintings/${p.filename}`}
                 alt={p.name}
                 className="card-img-top img-preview"
               />
