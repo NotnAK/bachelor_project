@@ -48,6 +48,25 @@ cd bachelor_project
 ---
 
 ## 3. Backend Setup
+---
+
+## ⚙️ System Requirements
+
+Due to the computational demands of the vision–language models (e.g. PaliGemma), the backend requires a relatively powerful machine to run smoothly.
+
+**Minimum recommended configuration:**
+
+- **GPU**: NVIDIA GPU with at least **20 GB VRAM**  
+  (Tested on RTX 4090 with 24 GB — typical usage peaks at ~20–24 GB)
+- **Disk Space**: At least **30 GB of free space**  
+  (required for model files, database dump, and extracted images)
+- **RAM**: At least **16 GB system memory**
+- **CPU**: No specific requirements — the system can run on CPU,  
+  but performance may be significantly degraded compared to GPU execution.
+---
+
+
+
 
 ### 3.1. Prepare heavy data (media, models, db)
 
