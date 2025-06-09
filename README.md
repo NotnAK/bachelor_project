@@ -1,6 +1,6 @@
 # Bachelor Project
 
-This repository contains a React frontend and a Django-pgvector backend for your bachelor project.
+This repository contains a React frontend and a Django backend of our project.
 
 ## 1. Clone the repository
 
@@ -49,18 +49,19 @@ cd bachelor_project
 
 ## 3. Backend Setup
 
-### 3.1. Prepare heavy data (media & models)
+### 3.1. Prepare heavy data (media, models, db)
 
-We don’t commit large files to GitHub. You need to download two ZIP archives from Google Drive:
+We don’t commit large files to GitHub. You need to download the following ZIP archives and database dump from Google Drive:
 
-[https://drive.google.com/drive/folders/1zvDDUdfyF5faHSku7d\_bo2hDAEbb-H3b?usp=sharing](https://drive.google.com/drive/folders/1zvDDUdfyF5faHSku7d_bo2hDAEbb-H3b?usp=sharing)
+[Link](https://drive.google.com/drive/folders/1zvDDUdfyF5faHSku7d_bo2hDAEbb-H3b?usp=sharing)
 
-* **media.zip** (contains `extracted_paintings/` where our media is stored)
-* **models.zip** (contains our fine-tuned version of paligemma and tokenizer)
+* **media.zip** — contains `extracted_paintings/` where our media is stored  
+* **models.zip** — contains our fine-tuned version of PaliGemma and tokenizer  
+* **db.dump** — PostgreSQL dump with all schema and data
 
-Further your task is to unpack these zip archives and copy the contents of **media** and **models** folders to the corresponding folders in your project. 
+Your task is to unpack the ZIP archives and place the contents of the `media/` and `models/` folders into the corresponding folders in your local project. Then place the `db.dump` file into the `db/dump/` folder.
 
-After this, you should have:
+After this, your project structure should look like this:
 
 ```
 bachelor_project/
@@ -69,6 +70,9 @@ bachelor_project/
 ├── models/
 │   └── paligemma-3b-mix-448.f16.npz
 │   └── paligemma_tokenizer.model
+├── db/
+│   └── dump/
+│       └── db.dump
 └── (other project files…)
 ```
 
@@ -206,12 +210,13 @@ Open [http://localhost:8000](http://localhost:8000) to verify your API is up.
    npm ci
    npm start
    ```
-
 3. **Backend**
 
    ```bash
    cd ../
-   # download & unzip media.zip → media/, models.zip → models/
+   # download media.zip and models.zip from Google Drive
+   # unzip contents of media.zip into media/, models.zip into models/
+   # download db.dump and place it into db/dump/db.dump
    # install PostgreSQL & pgvector
    # create user, database, extension
    pg_restore … db/dump/db.dump
@@ -220,6 +225,7 @@ Open [http://localhost:8000](http://localhost:8000) to verify your API is up.
    python manage.py migrate
    python manage.py runserver
    ```
+
 
 4. **Browse**
 
