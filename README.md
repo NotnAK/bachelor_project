@@ -1,6 +1,6 @@
 # Bachelor Project
 
-This repository contains a React frontend and a Django-pgvector backend for your bachelor project.
+This repository contains a React frontend and a Django backend of our project.
 
 ## 1. Clone the repository
 
@@ -48,19 +48,39 @@ cd bachelor_project
 ---
 
 ## 3. Backend Setup
+---
 
-### 3.1. Prepare heavy data (media & models)
+## ⚙️ System Requirements
 
-We don’t commit large files to GitHub. You need to download two ZIP archives from Google Drive:
+Due to the computational demands of the vision–language models (e.g. PaliGemma), the backend requires a relatively powerful machine to run smoothly.
 
-[https://drive.google.com/drive/folders/1zvDDUdfyF5faHSku7d\_bo2hDAEbb-H3b?usp=sharing](https://drive.google.com/drive/folders/1zvDDUdfyF5faHSku7d_bo2hDAEbb-H3b?usp=sharing)
+**Minimum recommended configuration:**
 
-* **media.zip** (contains `extracted_paintings/` where our media is stored)
-* **models.zip** (contains our fine-tuned version of paligemma and tokenizer)
+- **GPU**: NVIDIA GPU with at least **20 GB VRAM**  
+  (Tested on RTX 4090 with 24 GB — typical usage peaks at ~20–24 GB)
+- **Disk Space**: At least **30 GB of free space**  
+  (required for model files, database dump, and extracted images)
+- **RAM**: At least **16 GB system memory**
+- **CPU**: No specific requirements — the system can run on CPU,  
+  but performance may be significantly degraded compared to GPU execution.
+---
 
-Further your task is to unpack these zip archives and copy the contents of **media** and **models** folders to the corresponding folders in your project. 
 
-After this, you should have:
+
+
+### 3.1. Prepare heavy data (media, models, db)
+
+We don’t commit large files to GitHub. You need to download the following ZIP archives and database dump from Google Drive:
+
+[Link](https://drive.google.com/drive/folders/1zvDDUdfyF5faHSku7d_bo2hDAEbb-H3b?usp=sharing)
+
+* **media.zip** — contains `extracted_paintings/` where our media is stored  
+* **models.zip** — contains our fine-tuned version of PaliGemma and tokenizer  
+* **db.dump** — PostgreSQL dump with all schema and data
+
+Your task is to unpack the ZIP archives and place the contents of the `media/` and `models/` folders into the corresponding folders in your local project. Then place the `db.dump` file into the `db/dump/` folder.
+
+After this, your project structure should look like this:
 
 ```
 bachelor_project/
@@ -69,6 +89,9 @@ bachelor_project/
 ├── models/
 │   └── paligemma-3b-mix-448.f16.npz
 │   └── paligemma_tokenizer.model
+├── db/
+│   └── dump/
+│       └── db.dump
 └── (other project files…)
 ```
 
@@ -170,7 +193,7 @@ pg_restore \
    pip install --upgrade pip
    pip install -r requirements.txt
    ```
-
+⚠️ Note: Some packages in requirements.txt may fail to install due to version conflicts or platform-specific issues. In this situation, you will have to set it manually.
 ### 3.6. Run migrations & start the server
 
 > **Note:** Because the dump includes all past migrations (table `django_migrations`), running `migrate` will skip them and apply only any new ones.
@@ -206,12 +229,13 @@ Open [http://localhost:8000](http://localhost:8000) to verify your API is up.
    npm ci
    npm start
    ```
-
 3. **Backend**
 
    ```bash
    cd ../
-   # download & unzip media.zip → media/, models.zip → models/
+   # download media.zip and models.zip from Google Drive
+   # unzip contents of media.zip into media/, models.zip into models/
+   # download db.dump and place it into db/dump/db.dump
    # install PostgreSQL & pgvector
    # create user, database, extension
    pg_restore … db/dump/db.dump
@@ -220,6 +244,7 @@ Open [http://localhost:8000](http://localhost:8000) to verify your API is up.
    python manage.py migrate
    python manage.py runserver
    ```
+
 
 4. **Browse**
 
